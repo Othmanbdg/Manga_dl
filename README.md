@@ -3,7 +3,7 @@ Programme qui dl épisode sur voiranime avec une interface graphique
 
 Afin de lancer ce programme dans de bonnes conditions:
   - Vous devez télécharger geckodriver à cette url https://github.com/mozilla/geckodriver/releases
-  - Vous devez vous munir d'un lien de voiranime.com
+  - Vous devez vous munir d'un lien de http://voiranime.com
   
   
 Une fois que vous avez tout ça vous pouvez éxecuter le programme.

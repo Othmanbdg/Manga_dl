@@ -6,6 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from tkinter.filedialog import askdirectory
 from tkinter import messagebox
+from tqdm.auto import tqdm
+import time
 # path="C://Users//othma//Downloads"
 # os.chdir(path)
 screen=Tk()
@@ -17,6 +19,7 @@ site="ya rien"
 nbr=""
 name=""
 vid=""
+manga_name=""
 ## Fonction de l'UI
 def all():
     try:
@@ -120,29 +123,48 @@ def begin():
         for i in range(nbr):
             screen.update()
             traitement_page(site)
-            bn.configure(text="Téléchargement de : l'épisode "+name)
+            bn.configure(text="Téléchargement de : l'épisode "+name+" de "+manga_name)
             screen.update()
-            site=Next(site)
+            if nbr!=1:
+                site=Next(site)
 
 def traitement_page(site):
-    global name
+    global name,manga_name
     if "voiranime" in site :
+        name=site.split("/")[-2].split('-')[-2]
+        bn.configure(text="Téléchargement de : l'épisode "+name)
+        manga_name=get_name(site)
         page = requests.get(site)
         soup = BeautifulSoup(page.text, 'html.parser')
-        name=site.split("/")[-2].split('-')[-2]
+        screen.update()
         kl=str(soup.findAll("span")[4].contents).split("=")[-1].split(">")[1].partition("</a")[0]
         get_le_site=soup.find("div", {"id": "player-embed"}).contents[1]['src']
         Get_la_video(get_le_site)
 
 
-    if "lumni" in site:
-        print("on fait ça un autre jour mdrrrrrrr")
-
+    if "01streaming" in site:
+        name=site.split("-")[-1][0]
+        bn.configure(text="Téléchargement de : l'épisode "+name)
+        manga_name=get_name(site)
+        options = Options()
+        options.add_argument('--headless')
+        dri = webdriver.Firefox(options=options)
+        dri.get(site)
+        time.sleep(3)
+        op=dri.find_elements_by_tag_name("img")
+        op[3].click()
+        ab=dri.find_elements_by_tag_name("div")
+        for i in range(4):
+            ab[0].click()
+        ifr=dri.find_elements_by_tag_name("iframe")
+        src=ifr[0].get_attribute("src")
+        Get_la_video(src)
+        dri.close()
     if "seriestreaming" in site:
         print("ghj")
 
 def Get_la_video(work_str):
-    global vid,site
+    global vid,site,manga_name,site
     if "gounlimited" in work_str:
         soup=BeautifulSoup(requests.get(work_str).text,"html.parser")
         ui=soup.text
@@ -151,18 +173,19 @@ def Get_la_video(work_str):
         src="https://"+op[-2].split(".")[0][:-1]+".gounlimited.to/"+op[-3]+"/v.mp4"
         if BeautifulSoup(requests.get(src).text,"html.parser").text=='error_nofile' or str(BeautifulSoup(requests.get(src).text,"html.parser").find("title")) == "<title>500 Internal Server Error</title>":
             print("bah ça marche pas avec " + src)
-            messagebox.showerror(title="Episode "+name, message="L'épisode "+name+" n'a pas pu être téléchargé car les vidéos ne sont plus disponible.")
+            messagebox.showerror(title="Episode "+name, message="L'épisode "+name+" de "+manga_name +" n'a pas pu être téléchargé car les vidéos ne sont plus disponibles.")
         else:
             vid=src
             download_video_series([vid])
-            messagebox.showinfo(title="Téléchargement réussi", message="L'épisode "+name+ " a été téléchargé avec succès !!")
+            screen.update()
+            messagebox.showinfo(title="Téléchargement réussi", message="L'épisode "+name+" de "+manga_name + " a été téléchargé avec succès !!")
     elif "mystream" in work_str:
         options = Options()
         options.add_argument('--headless')
         driver = webdriver.Firefox(options=options,executable_path=geck)
         print(work_str)
         driver.get(work_str)
-        if driver.title == "Video not found — Mystream":
+        if driver.title == "Video not found — Mystream" and "voiranime" in site:
             options = Options()
             options.add_argument('--headless')
             dri = webdriver.Firefox(options=options)
@@ -179,10 +202,10 @@ def Get_la_video(work_str):
         else:
             vid=driver.find_elements_by_tag_name("source")[0].get_attribute("src")
             download_video_series([vid])
-            messagebox.showinfo(title="Téléchargement réussi", message="L'épisode "+name+ " a été téléchargé avec succès !!")
+            messagebox.showinfo(title="Téléchargement réussi", message="L'épisode "+name+" de "+manga_name + " a été téléchargé avec succès !!")
             driver.close()
     else:
-        messagebox.showerror(title="Episode "+name, message="L'épisode "+name+" n'a pas pu être téléchargé car les vidéos ne sont plus disponible.")
+        messagebox.showerror(title="Episode "+name, message="L'épisode "+name+" de "+manga_name +" n'a pas pu être téléchargé car les vidéos ne sont plus disponibles.")
 
 
 def download_video_series(video_links):
@@ -194,10 +217,13 @@ def download_video_series(video_links):
         print ("Downloading file: %s"%file_name)
 
         r = requests.get(link, stream = True)
+        total_size_in_bytes= int(r.headers.get('content-length', 0))
+        progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
         # download started
         with open(file_name, 'wb') as f:
             for chunk in r.iter_content(chunk_size = 1024*1024):
                 if chunk:
+                    progress_bar.update(len(chunk))
                     screen.update()
                     f.write(chunk)
 
@@ -212,6 +238,33 @@ def Next(url):
         nom[-2]=num
         newurl=domaine+"-".join(nom)+"/"
         return newurl
+    if "01streaming" in url:
+        url=url.split("-")
+        kl=url[-1]
+        kl=str(int(kl[0])+1)+kl[1]
+        url.pop(-1)
+        url.append(kl)
+        newurl="-".join(url)
+        return newurl
+def get_name(u):
+    global name
+    if "voiranime" in u:
+        u=u.split('/')
+        L=["http:","voiranime.com","","vf","vostfr",name,""]
+        for io in L:
+            if io in u:
+                u.remove(io)
+        u="-".join(u)
+        u=u.split("-")
+        for io in L:
+            if io in u:
+                u.remove(io)
+        u=" ".join(u)
+        u=u.capitalize()
+        return u
+    if "01streaming" in u:
+        u="".join(url.split("/")[4].split("-")[:-4]).capitalize()
+        return u
 
 screen.bind('<Return>',allu)
 screen.resizable(False, False)
